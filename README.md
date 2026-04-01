@@ -8,16 +8,13 @@ Let Claude read your emails, discuss replies with you, draft responses, and save
 
 ## Install
 
+Run this in Claude Code (or any terminal):
+
 ```bash
-git clone https://github.com/YuWenHao1212/bp1-email.git
-cd bp1-email
+git clone https://github.com/YuWenHao1212/bp1-email.git /tmp/bp1-email && cp -r /tmp/bp1-email/email ~/.claude/skills/email
 ```
 
-Open Claude Code in this directory and say:
-
-> "安裝 email skill"
-
-Claude will install the skill to `~/.claude/skills/email/` (global — works in any directory).
+This installs the email skill globally (`~/.claude/skills/email/`) — works in any directory.
 
 ## Setup
 
