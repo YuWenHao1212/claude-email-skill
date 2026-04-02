@@ -116,6 +116,24 @@ account: {帳號名稱}
 - **加 `--theme`** 會自動套用 email-safe 的 table layout 模板，建議 HTML 信件都加
 - 程式會自動把 `<blockquote>` 替換成 `<div>`（防呆），但產 body 時就不要用
 
+## 自建 Mail Server（非 Gmail / Outlook）
+
+如果使用者的 email 不是 Gmail 或 Outlook（例如公司自建 mail server），需要手動設定 `.env.email`：
+
+```
+work_PROVIDER=gmail
+work_HOST=mail.company.com
+work_PORT=143
+work_SECURITY=starttls
+work_USER=帳號
+work_PASSWORD=密碼
+```
+
+- `work_PROVIDER=gmail` 不用改（只是 fallback 預設值，實際用 HOST/PORT）
+- `work_SECURITY`：port 993 自動用 SSL，port 143 自動用 STARTTLS，通常不用設
+- 帳號格式依 server 而定（可能是 `user`、`user@domain`、或其他）
+- 密碼是登入 webmail 的密碼，不是 Google App Password
+
 ## 安全規則
 
 - **草稿優先**：所有信件先存草稿匣，不自動寄出（email_ops.py 沒有 send 指令）

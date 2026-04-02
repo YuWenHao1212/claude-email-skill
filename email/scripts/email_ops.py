@@ -85,9 +85,15 @@ def get_accounts():
       sys.exit(1)
     # Allow per-account override of drafts folder
     drafts = env.get(f"{name}_DRAFTS_FOLDER", provider["drafts_folder"])
+    port = int(env.get(f"{name}_PORT", provider["port"]))
+    # Security: explicit override or auto-detect from port
+    security = env.get(f"{name}_SECURITY", "").lower()
+    if not security:
+      security = "ssl" if port == 993 else "starttls"
     accounts[name] = {
       "host": env.get(f"{name}_HOST", provider["host"]),
-      "port": int(env.get(f"{name}_PORT", provider["port"])),
+      "port": port,
+      "security": security,
       "user": user,
       "password": password,
       "drafts_folder": drafts,
@@ -103,7 +109,13 @@ def connect(account_name):
     print(json.dumps({"error": f"Account '{account_name}' not found. Available: {available}"}))
     sys.exit(1)
   acct = accounts[account_name]
-  m = imaplib.IMAP4_SSL(acct["host"], acct["port"], timeout=30)
+  security = acct.get("security", "ssl")
+  if security == "ssl":
+    m = imaplib.IMAP4_SSL(acct["host"], acct["port"], timeout=30)
+  else:
+    m = imaplib.IMAP4(acct["host"], acct["port"])
+    if security == "starttls":
+      m.starttls()
   m.login(acct["user"], acct["password"])
   return m, acct["drafts_folder"], acct["user"]
 
