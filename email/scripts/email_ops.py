@@ -194,21 +194,35 @@ def decode_addr(raw_header):
   return "".join(decoded)
 
 
+MAX_ATTACH_SIZE = 25 * 1024 * 1024  # 25MB per file
+
+
 def attach_files(msg, file_paths):
   """Attach files to a MIMEMultipart message."""
   for fpath in file_paths:
-    if not os.path.exists(fpath):
+    resolved = os.path.realpath(fpath)
+    # Block dotfiles and dot-directories (e.g. .ssh/, .env, .gnupg/)
+    path_parts = resolved.split(os.sep)
+    has_dotfile = any(p.startswith(".") and p not in (".", "..") for p in path_parts if p)
+    if has_dotfile:
+      print(json.dumps({"error": f"Refused to attach dotfile/dotdir path: {fpath}"}), file=sys.stderr)
+      continue
+    if not os.path.exists(resolved):
       print(json.dumps({"warning": f"File not found: {fpath}"}), file=sys.stderr)
       continue
-    mime_type, _ = mimetypes.guess_type(fpath)
+    file_size = os.path.getsize(resolved)
+    if file_size > MAX_ATTACH_SIZE:
+      print(json.dumps({"error": f"File too large ({file_size // 1024 // 1024}MB > 25MB): {fpath}"}), file=sys.stderr)
+      continue
+    mime_type, _ = mimetypes.guess_type(resolved)
     if mime_type is None:
       mime_type = "application/octet-stream"
     main_type, sub_type = mime_type.split("/", 1)
-    with open(fpath, "rb") as f:
+    with open(resolved, "rb") as f:
       part = MIMEBase(main_type, sub_type)
       part.set_payload(f.read())
     encoders.encode_base64(part)
-    filename = os.path.basename(fpath)
+    filename = os.path.basename(resolved)
     part.add_header("Content-Disposition", "attachment", filename=filename)
     msg.attach(part)
 
@@ -570,7 +584,7 @@ def cmd_search(account_name, query, limit=10, mailbox="INBOX"):
         _, data = m.search(None, f'(FROM "{safe_query}")')
         ids = data[0].split() if data[0] else []
     else:
-      scan_count = max(limit * 20, 200)
+      scan_count = min(max(limit * 20, 200), 500)
       _, data = m.search(None, "ALL")
       all_ids = data[0].split() if data[0] else []
       candidate_ids = all_ids[-scan_count:]
