@@ -111,6 +111,8 @@ account: {帳號名稱}
 > - Flag：`email_ops.py draft --account work --to "user@email.com" --subject "主旨" --body "內文"`
 > - 混合：`email_ops.py draft work --to "user@email.com" --subject "主旨" --body "內文"`
 >
+> draft 的 `to` 和 `cc` 會驗證 email 格式，寫反會報錯。
+>
 > 查看完整說明：`email_ops.py --help` 或 `email_ops.py draft --help`
 
 ## HTML 信件規則

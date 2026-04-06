@@ -664,6 +664,13 @@ def resolve(*values):
   return None
 
 
+def validate_email(addr, label="to"):
+  """Validate email format. Exit with JSON error if invalid."""
+  if not re.match(r'^[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}$', addr):
+    print(json.dumps({"error": f"{label} '{addr[:50]}' is not a valid email."}))
+    sys.exit(1)
+
+
 def build_parser():
   """Build the argparse parser with all subcommands."""
   parser = JsonErrorParser(
@@ -792,6 +799,9 @@ if __name__ == "__main__":
       print(json.dumps({"error": f"Missing required arguments: {', '.join(missing)}",
                          "usage": "draft <account> <to> <subject> <body> [cc] [--html] [--theme] [--attach file]"}))
       sys.exit(1)
+    validate_email(to_addr, "to")
+    if cc:
+      validate_email(cc, "cc")
     cmd_draft(account, to_addr, subject, body, cc,
               html=args.html, theme=args.theme,
               attachments=args.attach)
