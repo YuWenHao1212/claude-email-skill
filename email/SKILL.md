@@ -102,7 +102,7 @@ account: {帳號名稱}
 | `read {account} <id>` | 讀一封信的完整內容 |
 | `search {account} <query> [limit]` | 搜尋信件（支援中文） |
 | `draft {account} <to> <subject> <body> [cc] [--html] [--theme] [--attach file]` | 產草稿 |
-| `reply {account} <id> <body> [--all] [--html] [--theme] [--attach file]` | 回覆 |
+| `reply {account} <id> <body> [--all] [--html] [--theme] [--attach file]` | 回覆（自動帶入原信引用：plain 用 `> ` 前綴，HTML 用 `<div>` 縮排） |
 | `mark_read {account} <id> [id...]` | 標記已讀 |
 | `list_folders {account}` | 列出所有信箱資料夾 |
 

@@ -355,6 +355,57 @@ def cmd_recent(account_name, limit=3, mailbox="INBOX"):
       pass
 
 
+def fetch_original_for_quote(m, msg_id, mailbox):
+  """Fetch original message body for quoting in reply.
+  Returns (plain_body, html_body, sender_display, date_str).
+  Any field may be empty string on failure — caller must fail-safe."""
+  try:
+    m.select(mailbox)
+    _, msg_data = m.fetch(msg_id.encode(), "(BODY.PEEK[])")
+    if not msg_data or not isinstance(msg_data[0], tuple):
+      return "", "", "", ""
+    msg = email.message_from_bytes(msg_data[0][1])
+
+    plain_body = ""
+    html_body = ""
+    if msg.is_multipart():
+      for part in msg.walk():
+        ct = part.get_content_type()
+        cd = str(part.get("Content-Disposition", ""))
+        if "attachment" in cd:
+          continue
+        if ct == "text/plain" and not plain_body:
+          payload = part.get_payload(decode=True)
+          if payload:
+            charset = part.get_content_charset() or "utf-8"
+            plain_body = payload.decode(charset, errors="replace")
+        elif ct == "text/html" and not html_body:
+          payload = part.get_payload(decode=True)
+          if payload:
+            charset = part.get_content_charset() or "utf-8"
+            html_body = payload.decode(charset, errors="replace")
+    else:
+      payload = msg.get_payload(decode=True)
+      if payload:
+        charset = msg.get_content_charset() or "utf-8"
+        ct = msg.get_content_type()
+        decoded = payload.decode(charset, errors="replace")
+        if ct == "text/html":
+          html_body = decoded
+        else:
+          plain_body = decoded
+
+    # Fallbacks: ensure both formats are populated when possible
+    if not plain_body and html_body:
+      plain_body = strip_html_tags(html_body)
+
+    sender_display = decode_addr(msg.get("From", ""))
+    date_str = msg.get("Date", "")
+    return plain_body, html_body, sender_display, date_str
+  except Exception:
+    return "", "", "", ""
+
+
 def cmd_read(account_name, msg_id, mailbox="INBOX"):
   """Read full email content. JSON output."""
   m, _, _ = connect(account_name)
@@ -527,10 +578,27 @@ def cmd_reply(account_name, msg_id, body, reply_all=False, html=False, theme=Fal
 
     references = f"{orig_refs} {orig_msg_id}".strip() if orig_refs else orig_msg_id
 
+    # Fetch original body for quoting (fail-safe: empty strings if anything goes wrong)
+    orig_plain, orig_html, sender_display, date_str = fetch_original_for_quote(m, msg_id, mailbox)
+    quote_header = f"On {date_str}, {sender_display} wrote:" if date_str or sender_display else "Original message:"
+
     if html:
       body = sanitize_html(body)
       if theme:
         body = apply_theme(body)
+      # Build HTML quote block — use <div> not <blockquote> (iOS Mail renders blockquote poorly)
+      quoted_html = orig_html if orig_html else (f"<pre>{orig_plain}</pre>" if orig_plain else "")
+      if quoted_html:
+        body = (
+          f"{body}<br><br>"
+          f'<div style="border-left:2px solid #ccc;padding-left:10px;color:#666;">'
+          f"<p>{quote_header}</p>{quoted_html}</div>"
+        )
+    else:
+      # Plain text quote block — RFC 3676 "> " prefix
+      if orig_plain:
+        quoted_lines = "\n".join("> " + line for line in orig_plain.split("\n"))
+        body = f"{body}\n\n{quote_header}\n{quoted_lines}"
 
     has_attachments = attachments and len(attachments) > 0
     needs_multipart = has_attachments or (html and theme)
